@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 import asyncio
 import nest_asyncio
 from colorama import init, Fore, Style, Back
-
+import agentops
 # Initialize colorama
 init()
 
@@ -137,9 +137,10 @@ def print_section(title: str, items: list[ClothingItem]):
 
 def main():
     """Test the wardrobe service with a sample prompt."""
+    # agentops.init(os.getenv("AGENTOPS_API_KEY"))
     service = WardrobeService()
     
-    test_prompt = "I need a casual wardrobe for a Boston Red Sox fan who likes comfortable clothes"
+    test_prompt = str(input("Enter a prompt: "))
 
     
     try:
@@ -166,6 +167,8 @@ def main():
     except Exception as e:
         print(f"\n{Back.RED}{Fore.WHITE}{Style.BRIGHT} ERROR {Style.RESET_ALL}")
         print(f"{Fore.RED}{str(e)}{Style.RESET_ALL}")
+
+    # agentops.end_session('Success')
 
 if __name__ == "__main__":
     main()
