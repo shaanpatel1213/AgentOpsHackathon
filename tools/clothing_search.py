@@ -1,112 +1,97 @@
+import requests
+from bs4 import BeautifulSoup
+import re
 from agents import function_tool
 from typing import Optional
 
-@function_tool
-def search_clothing_items(
-    theme: str, 
-    item_type: str, 
-    price_range: Optional[str] = None,
-    brand: Optional[str] = None,
-    gender: Optional[str] = None
-):
-    """
-    Search for clothing items based on theme and type.
-    
-    Args:
-        theme: Style theme (e.g., "Boston Red Sox fan", "minimalist", "bohemian")
-        item_type: Type of clothing (e.g., "hat", "jersey", "jeans", "sneakers")
-        price_range: Optional price range (e.g., "under $50", "$50-$100")
-        brand: Optional brand preference
-        gender: Optional gender preference for sizing/style
-        
-    Returns:
-        List of items matching the criteria
-    """
-    # Create search query for logging
-    search_query = f"{theme} {item_type}"
-    if price_range:
-        search_query += f" {price_range}"
-    if brand:
-        search_query += f" by {brand}"
-    if gender:
-        search_query += f" for {gender}"
-    
-    print(f"Searching for: {search_query}")
-    
-    # Mock response - in production, replace with actual API call
-    return {
-        "search_query": search_query,
-        "results_count": 5,
-        "message": f"Found 5 {item_type} items matching '{theme}' theme"
-    }
-
-@function_tool
-def get_product_details(product_id: str, theme: str, item_type: str):
-    """
-    Get detailed information about a specific product.
-    
-    Args:
-        product_id: Identifier for the product
-        theme: The theme context to help generate appropriate mock data
-        item_type: Type of item to help generate appropriate mock data
-        
-    Returns:
-        Detailed product information including name, price, images, and URL
-    """
-    # Create price with some variation
-    import random
-    base_price = random.randint(20, 100)
-    price = f"${base_price}.{random.randint(0, 99):02d}"
-    
-    # Create mock product name
-    product_name = f"{theme.title()} {item_type.title()}"
-    if "hat" in item_type.lower() or "cap" in item_type.lower():
-        product_name = f"{theme.title()} Adjustable Cap"
-    elif "shirt" in item_type.lower() or "jersey" in item_type.lower():
-        product_name = f"{theme.title()} Graphic Tee"
-    elif "hoodie" in item_type.lower() or "jacket" in item_type.lower():
-        product_name = f"{theme.title()} Zip-Up Hoodie"
-    
-    # Generate mock URLs
-    image_url = f"https://example.com/images/{theme.replace(' ', '-').lower()}-{item_type.lower()}.jpg"
-    product_url = f"https://example.com/products/{product_id}"
-    
-    return {
-        "product_id": product_id,
-        "name": product_name,
-        "price": price,
-        "image_url": image_url,
-        "product_url": product_url,
-        "description": f"This {item_type} features {theme} styling with premium quality materials."
-    }
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+}
 
 @function_tool
 def search_real_products(query: str, item_type: str, max_results: int):
-    """
-    Search for real products using a web search API.
+    """Scrapes Walmart for product details"""
+    query = f"{query} {item_type}"
+    walmart_url = f"https://www.walmart.com/search?q={query.replace(' ', '+')}"
+    print(f"Fetching Walmart URL: {walmart_url}")
+    response = requests.get(walmart_url, headers=HEADERS)
+    soup = BeautifulSoup(response.text, "html.parser")
     
-    Args:
-        query: Search query including theme and item details
-        item_type: Type of clothing item
-        max_results: Maximum number of results to return
+    products = []
+    items = soup.select("div[data-item-id]")
+    print(f"Found {len(items)} Walmart items")
+    
+    for item in items[:max_results]:
+        try:
+            # Get product name
+            name = None
+            name_elem = (
+                item.select_one("span[data-automation-id='product-title']") or
+                item.select_one("span.w_iUH7") or
+                item.select_one("span.normal")
+            )
+            if name_elem:
+                name = name_elem.text.strip()
+            
+            # Get product URL
+            url = "URL not available"
+            product_id = item.get('data-item-id')
+            if product_id:
+                links = item.select("a")
+                for link in links:
+                    href = link.get('href', '')
+                    if product_id in href or '/ip/' in href:
+                        url = href
+                        if not url.startswith('http'):
+                            url = f"https://www.walmart.com{url}"
+                        if '?' in url:
+                            url = url.split('?')[0]
+                        break
+            
+            # Get product price
+            price = "Price not available"
+            price_elem = (
+                item.select_one("span[data-automation-id='product-price-1']") or
+                item.select_one("div[data-automation-id='product-price']") or
+                item.select_one("div.b_Wu1_") or
+                item.select_one("span.price-main")
+            )
+            if price_elem:
+                price_text = price_elem.text.strip()
+                price_match = re.search(r'\$(\d+\.?\d{0,2})', price_text)
+                if price_match:
+                    price = price_match.group(1)
+                    try:
+                        price = "{:.2f}".format(float(price) / 100)
+                    except:
+                        price = "Price not available"
+
+            # Get product image
+            image = None
+            img_elem = (
+                item.select_one("img[data-automation-id='product-image']") or
+                item.select_one("img.absolute") or
+                item.select_one("img")
+            )
+            if img_elem:
+                image = img_elem.get('src')
+                if not image or image.startswith('data:'):
+                    image = img_elem.get('data-src')
+            
+            # Only add product if we have at least a name
+            if name:
+                products.append({
+                    "name": name,
+                    "price": price if price else "Price not available",
+                    "image_url": image if image else "Image not available",
+                    "product_url": url,
+                    "description": description if description else "Description not available"
+                })
         
-    Returns:
-        List of real products with details
-    """
-    results = []
-    for i in range(1, max_results + 1):
-        item_id = f"{query.replace(' ', '-')}-{i}"
-        results.append({
-            "id": item_id,
-            "name": f"{query.title()} {item_type.title()} - Style {i}",
-            "price": f"${20*i}.99",
-            "retailer": ["Amazon", "Nordstrom", "Macy's", "Target"][i % 4],
-            "image_url": f"https://example.com/products/{item_id}.jpg",
-            "product_url": f"https://example.com/shop/{item_id}"
-        })
-    
-    return {
-        "query": query,
-        "item_type": item_type,
-        "results": results
-    } 
+            print(products)
+            
+        except Exception as e:
+            print(f"Error processing Walmart item: {e}")
+            continue
+
+    return products

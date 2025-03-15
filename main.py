@@ -84,13 +84,29 @@ if __name__ == "__main__":
     # Get recommendation
     try:
         # Add debug logging
-        print("\n=== DEBUG INFO ===")
+        # print("\n=== DEBUG INFO ===")
         result = Runner.run_sync(wardrobe_agent, test_prompt)
-        print(f"Result type: {type(result.final_output)}")
-        print(f"Result content: {result.final_output}")
-        print("=== END DEBUG ===\n")
+        # print(f"Result type: {type(result.final_output)}")
+        # print(f"Result content: {result.final_output}")
+        if isinstance(result.final_output, str):
+            # print("\nAttempting to parse as JSON:")
+            try:
+                parsed = json.loads(result.final_output)
+                #print(f"Parsed JSON: {json.dumps(parsed, indent=2)}")
+                recommendation = WardrobeRecommendation(theme=parsed["theme"],
+                                                        styling_tips=parsed["styling_tips"],
+                                                        tops=parsed["suggested_items"]["tops"],
+                                                        bottoms=parsed["suggested_items"]["bottoms"],
+                                                        outerwear=parsed["suggested_items"]["outerwear"],
+                                                        headwear=parsed["suggested_items"]["headwear"],
+                                                        footwear=parsed["suggested_items"]["footwear"],
+                                                        accessories=parsed["suggested_items"]["accessories"])
+            except json.JSONDecodeError as e:
+                print(f"JSON parsing failed: {e}")
+        # print("=== END DEBUG ===\n")
         
-        recommendation = create_wardrobe_recommendation(test_prompt)
+        #recommendation = create_wardrobe_recommendation(test_prompt)
+        print(recommendation)
         print_recommendation(recommendation)
         
     except Exception as e:
