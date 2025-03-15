@@ -1,113 +1,59 @@
-from openai import OpenAI
-from agents import Runner
-from my_agents.wardrobe_agents import wardrobe_agent
-from models.clothing import WardrobeRecommendation
-import os
-from dotenv import load_dotenv
-import json
+from flask import Flask, request, jsonify
+from wardrobe_service import WardrobeService
+from models.clothing import ClothingItem
+import logging
 
-load_dotenv()
+# Set up logging
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
-# Set up OpenAI client
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+app = Flask(__name__)
+wardrobe_service = WardrobeService()
 
-def create_wardrobe_recommendation(user_prompt):
+@app.route('/api/wardrobe/recommend', methods=['POST'])
+def get_wardrobe_recommendation():
     """
     Generate a wardrobe recommendation based on user prompt.
     
-    Args:
-        user_prompt: User's request for a wardrobe recommendation
-        
-    Returns:
-        Structured wardrobe recommendation
+    Request body:
+    {
+        "prompt": "string"  // User's wardrobe request
+    }
     """
-    result = Runner.run_sync(
-        wardrobe_agent,
-        user_prompt
-    )
-    
-    # Convert the result to a WardrobeRecommendation object if it's not already
-    if isinstance(result.final_output, str):
-        try:
-            # Try to parse the string as a JSON dictionary
-            data = json.loads(result.final_output)
-            return WardrobeRecommendation(**data)
-        except json.JSONDecodeError:
-            raise ValueError(f"Agent output is not in the expected format: {result.final_output}")
-    elif isinstance(result.final_output, dict):
-        # If it's already a dictionary, convert it to WardrobeRecommendation
-        return WardrobeRecommendation(**result.final_output)
-    else:
-        return result.final_output  # If it's already a WardrobeRecommendation object
-
-def print_recommendation(recommendation):
-    """Print a formatted wardrobe recommendation."""
-    print("\n=== WARDROBE RECOMMENDATION ===")
-    print(f"Theme: {recommendation.theme}")
-    
-    print("\n== HEADWEAR ==")
-    for item in recommendation.headwear:
-        print(f"- {item.name}: {item.price}")
-        print(f"  {item.description}")
-        print(f"  Image: {item.image_url}")
-        print(f"  Buy: {item.product_url}")
-    
-    print("\n== TOPS ==")
-    for item in recommendation.tops:
-        print(f"- {item.name}: {item.price}")
-        print(f"  {item.description}")
-        print(f"  Image: {item.image_url}")
-        print(f"  Buy: {item.product_url}")
-    
-    print("\n== OUTERWEAR ==")
-    for item in recommendation.outerwear:
-        print(f"- {item.name}: {item.price}")
-        print(f"  {item.description}")
-        print(f"  Image: {item.image_url}")
-        print(f"  Buy: {item.product_url}")
-    
-    print("\n== STYLING TIPS ==")
-    print(recommendation.styling_tips)
-
-if __name__ == "__main__":
-    # Example prompts
-    example_prompts = [
-        "I recently moved to Boston. I am a Red Sox fan. Create a new wardrobe for me, with hats.",
-        "I need a minimalist wardrobe for my new job in Seattle. I prefer neutral colors.",
-        "Help me create a summer festival wardrobe with a bohemian vibe. I love hats and accessories."
-    ]
-    
-    # Choose a prompt to test
-    test_prompt = example_prompts[0]
-    print(f"Processing request: {test_prompt}")
-    
-    # Get recommendation
     try:
-        # Add debug logging
-        # print("\n=== DEBUG INFO ===")
-        result = Runner.run_sync(wardrobe_agent, test_prompt)
-        # print(f"Result type: {type(result.final_output)}")
-        # print(f"Result content: {result.final_output}")
-        if isinstance(result.final_output, str):
-            # print("\nAttempting to parse as JSON:")
-            try:
-                parsed = json.loads(result.final_output)
-                #print(f"Parsed JSON: {json.dumps(parsed, indent=2)}")
-                recommendation = WardrobeRecommendation(theme=parsed["theme"],
-                                                        styling_tips=parsed["styling_tips"],
-                                                        tops=parsed["suggested_items"]["tops"],
-                                                        bottoms=parsed["suggested_items"]["bottoms"],
-                                                        outerwear=parsed["suggested_items"]["outerwear"],
-                                                        headwear=parsed["suggested_items"]["headwear"],
-                                                        footwear=parsed["suggested_items"]["footwear"],
-                                                        accessories=parsed["suggested_items"]["accessories"])
-            except json.JSONDecodeError as e:
-                print(f"JSON parsing failed: {e}")
-        # print("=== END DEBUG ===\n")
+        logger.debug("Received wardrobe recommendation request")
+        data = request.get_json()
+        logger.debug(f"Request data: {data}")
         
-        #recommendation = create_wardrobe_recommendation(test_prompt)
-        print(recommendation)
-        print_recommendation(recommendation)
+        if not data or 'prompt' not in data:
+            logger.error("Missing prompt in request body")
+            return jsonify({'error': 'Missing prompt in request body'}), 400
+            
+        prompt = data['prompt']
+        logger.debug(f"Processing prompt: {prompt}")
+        
+        recommendation = wardrobe_service.create_wardrobe_recommendation(prompt)
+        logger.debug("Generated recommendation")
+        
+        # Convert recommendation to dictionary
+        result = {
+            'theme': recommendation.theme,
+            'styling_tips': recommendation.styling_tips,
+            'tops': [item.__dict__ for item in recommendation.tops],
+            'bottoms': [item.__dict__ for item in recommendation.bottoms],
+            'outerwear': [item.__dict__ for item in recommendation.outerwear],
+            'headwear': [item.__dict__ for item in recommendation.headwear],
+            'footwear': [item.__dict__ for item in recommendation.footwear],
+            'accessories': [item.__dict__ for item in recommendation.accessories]
+        }
+        
+        logger.debug(f"Sending response: {result}")
+        return jsonify(result)
         
     except Exception as e:
-        print(f"Error generating recommendation: {e}")
+        logger.error(f"Error processing request: {str(e)}", exc_info=True)
+        return jsonify({'error': str(e)}), 500
+
+if __name__ == '__main__':
+    logger.info("Starting Flask server...")
+    app.run(debug=True, port=5000)

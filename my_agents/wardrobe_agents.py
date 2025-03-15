@@ -4,7 +4,7 @@ from tools.weather import get_weather_information
 from models.clothing import WardrobeRecommendation
 from utils.guardrails import validate_price_range, validate_image_urls
 
-# Create specialized my_agents
+# Create specialized agents
 product_search_agent = Agent(
     name="Clothing Search Specialist",
     instructions="""
@@ -32,11 +32,7 @@ product_search_agent = Agent(
     4. Match items to the user's specific requests and preferences
     5. Consider seasonal appropriateness and location
     """,
-    tools=[
-        #search_clothing_items, 
-        #get_product_details, 
-        search_real_products, 
-        WebSearchTool()]
+    tools=[search_real_products, WebSearchTool()]
 )
 
 style_advisor_agent = Agent(
@@ -121,7 +117,7 @@ wardrobe_agent = Agent(
     11. DO NOT keep the suggested_items structure in the output
     12. Move all items to their respective top-level arrays
     """,
-    handoffs=[product_search_agent, style_advisor_agent],
+    handoffs=[product_search_agent],
     output_guardrails=[validate_price_range, validate_image_urls],
     output_type=WardrobeRecommendation
 ) 

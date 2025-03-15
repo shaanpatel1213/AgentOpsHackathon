@@ -1,89 +1,77 @@
 # AI Wardrobe Assistant
 
-An AI-powered wardrobe assistant that helps users create personalized clothing recommendations based on their style preferences, location, and specific needs.
+An intelligent wardrobe recommendation system that uses AI to generate personalized clothing suggestions based on user preferences, style, and context. The system leverages OpenAI's API and a multi-agent architecture to provide detailed wardrobe recommendations with real product suggestions.
 
 ## Features
 
-- Theme-based wardrobe recommendations
-- Location-aware clothing suggestions
-- Detailed product recommendations with pricing
-- Styling tips and outfit combinations
-- Support for specific clothing requests (e.g., hats, accessories)
-- Weather-appropriate clothing suggestions
-
-## Project Structure
-
-```
-.
-├── agents/
-│   └── wardrobe_agents.py    # Agent definitions
-├── models/
-│   └── clothing.py           # Data models
-├── tools/
-│   ├── clothing_search.py    # Clothing search tools
-│   └── weather.py           # Weather information tool
-├── utils/
-│   └── guardrails.py        # Output validation
-├── main.py                  # Main application
-├── requirements.txt         # Dependencies
-└── README.md               # Documentation
-```
+- **Personalized Recommendations**: Generates wardrobe suggestions based on user's style preferences, occasion, and needs
+- **Real Product Search**: Integrates with Walmart's product catalog to find actual clothing items
+- **Structured Output**: Organizes recommendations by category (tops, bottoms, outerwear, etc.)
+- **Detailed Information**: Provides product names, prices, descriptions, and URLs for each item
+- **Styling Tips**: Includes personalized advice on how to combine and wear the suggested items
+- **REST API**: Offers a Flask-based API endpoint for easy integration
 
 ## Setup
 
-1. Create a virtual environment:
-   ```bash
-   python -m venv .venv
-   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-   ```
-
+1. Clone the repository
 2. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
-
+```bash
+pip install -r requirements.txt
+```
 3. Create a `.env` file with your OpenAI API key:
-   ```
-   OPENAI_API_KEY=your_api_key_here
-   ```
+```
+OPENAI_API_KEY=your-api-key-here
+```
 
 ## Usage
 
-Run the main script with an example prompt:
+### API Endpoint
 
+Start the Flask server:
 ```bash
 python main.py
 ```
 
-Or import and use the wardrobe recommendation function in your code:
-
-```python
-from main import create_wardrobe_recommendation
-
-prompt = "I need a minimalist wardrobe for my new job in Seattle. I prefer neutral colors."
-recommendation = create_wardrobe_recommendation(prompt)
+Make a request:
+```bash
+curl -X POST http://127.0.0.1:5000/api/wardrobe/recommend \
+  -H "Content-Type: application/json" \
+  -d '{
+    "prompt": "I need a minimalist wardrobe with neutral colors for a professional setting"
+  }'
 ```
 
-## Example Prompts
+### Example Response
 
-- "I recently moved to Boston. I am a Red Sox fan. Create a new wardrobe for me, with hats."
-- "I need a minimalist wardrobe for my new job in Seattle. I prefer neutral colors."
-- "Help me create a summer festival wardrobe with a bohemian vibe. I love hats and accessories."
+```json
+{
+  "theme": "Professional Minimalist Wardrobe",
+  "styling_tips": "Mix and match these versatile pieces...",
+  "tops": [
+    {
+      "name": "Classic White Oxford Shirt",
+      "price": "$45.99",
+      "description": "Crisp cotton oxford shirt...",
+      "product_url": "https://...",
+      "image_url": "https://..."
+    }
+  ],
+  // Other categories: bottoms, outerwear, headwear, footwear, accessories
+}
+```
 
-## Output Format
+## Architecture
 
-The wardrobe recommendations include:
-- Theme description
-- Clothing items by category (tops, bottoms, outerwear, etc.)
-- Price information
-- Product images and purchase links
-- Styling tips
+The system uses a multi-agent approach:
+- **Product Search Agent**: Finds real clothing items matching the user's requirements
+- **Style Advisor Agent**: Provides fashion advice and styling tips
+- **Main Wardrobe Agent**: Coordinates the recommendations and ensures coherent output
 
-## Note
+## Technologies
 
-This is a demonstration project using mock data. In a production environment, you would need to:
-1. Implement real e-commerce API integrations
-2. Use actual weather API data
-3. Set up proper error handling and rate limiting
-4. Implement caching for API responses
-5. Add proper security measures for API keys and user data
+- Python 3.8+
+- OpenAI API
+- Flask
+- Pydantic for data validation
+- Colorama for formatted console output
+- Async support with nest_asyncio
